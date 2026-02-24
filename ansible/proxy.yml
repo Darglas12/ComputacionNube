@@ -5,7 +5,7 @@
   vars:
     git_repo: "https://github.com/Darglas12/ComputacionNube.git"
     git_dest: "/home/ubuntu/ComputacionNube"
-    apache_conf_src: "{{ playbook_dir }}/../proxy/proxy.conf"
+    apache_conf_src: "/home/usuario/ComputacionNube/proxy/proxy.conf"
     apache_conf_dest: "/etc/apache2/sites-available/000-default.conf"
   tasks:
     - name: actualizar lista de paquetes y aplicar actualizaciones
@@ -24,6 +24,13 @@
         state: present
         update_cache: yes
 
+    - name: clonar repositorio en destino
+      ansible.builtin.git:
+        repo: "{{ git_repo }}"
+        dest: "{{ git_dest }}"
+        version: HEAD
+        update: yes
+
     - name: copiar configuración personalizada de apache
       ansible.builtin.copy:
         src: "{{ apache_conf_src }}"
@@ -34,20 +41,8 @@
         backup: yes
 
     - name: habilitar módulos de proxy en apache (necesarios para balanceador)
-      ansible.builtin.command: a2enmod proxy proxy_http proxy_balancer lbmethod_byrequests
-      args:
-        warn: false
-      register: proxy_mods
-      changed_when: proxy_mods.rc == 0
+      ansible.builtin.shell: |
+        cd /etc/apache2 && sudo a2enmod proxy
 
-    - name: reiniciar apache para aplicar cambios
-      ansible.builtin.service:
-        name: apache2
-        state: restarted
 
-    - name: clonar repositorio en destino
-      ansible.builtin.git:
-        repo: "{{ git_repo }}"
-        dest: "{{ git_dest }}"
-        version: HEAD
-        update: yes
+

@@ -1,0 +1,53 @@
+---
+- name: preparar servidor web con apache, php y repositorio
+  hosts: aws
+  become: true
+  vars:
+    git_repo: "https://github.com/Darglas12/ComputacionNube.git"
+    git_dest: "/home/ubuntu/ComputacionNube"
+    apache_conf_src: "{{ playbook_dir }}/../proxy/proxy.conf"
+    apache_conf_dest: "/etc/apache2/sites-available/000-default.conf"
+  tasks:
+    - name: actualizar lista de paquetes y aplicar actualizaciones
+      ansible.builtin.apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: instalar apache2, php y módulos básicos
+      ansible.builtin.apt:
+        name:
+          - apache2
+          - php
+          - libapache2-mod-php
+          - php-cli
+          - php-common
+        state: present
+        update_cache: yes
+
+    - name: copiar configuración personalizada de apache
+      ansible.builtin.copy:
+        src: "{{ apache_conf_src }}"
+        dest: "{{ apache_conf_dest }}"
+        owner: root
+        group: root
+        mode: '0644'
+        backup: yes
+
+    - name: habilitar módulos de proxy en apache (necesarios para balanceador)
+      ansible.builtin.command: a2enmod proxy proxy_http proxy_balancer lbmethod_byrequests
+      args:
+        warn: false
+      register: proxy_mods
+      changed_when: proxy_mods.rc == 0
+
+    - name: reiniciar apache para aplicar cambios
+      ansible.builtin.service:
+        name: apache2
+        state: restarted
+
+    - name: clonar repositorio en destino
+      ansible.builtin.git:
+        repo: "{{ git_repo }}"
+        dest: "{{ git_dest }}"
+        version: HEAD
+        update: yes
